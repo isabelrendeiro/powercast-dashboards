@@ -1,4 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+
+const CORRECT_PASSWORD = import.meta.env.VITE_APP_PASSWORD || "";
+
+function LoginScreen({ onLogin }) {
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState(false);
+  const tentar = () => {
+    if (senha === CORRECT_PASSWORD) { localStorage.setItem("pwr_auth", "true"); onLogin(); }
+    else { setErro(true); setSenha(""); setTimeout(() => setErro(false), 2000); }
+  };
+  return (
+    <div style={{ background: "#070710", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif" }}>
+      <div style={{ background: "#0d0d18", border: "1px solid #84cc1630", borderRadius: 20, padding: "48px 40px", width: "100%", maxWidth: 380, textAlign: "center" }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: 4 }}>POWER</span>
+            <span style={{ fontSize: 22, fontWeight: 900, color: "#84cc16", letterSpacing: 4 }}>CAST</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#5a5570", letterSpacing: 2 }}>PAINEL FINANCEIRO</div>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <input type="password" value={senha} onChange={e => setSenha(e.target.value)} onKeyDown={e => e.key === "Enter" && tentar()} placeholder="Digite a senha"
+            style={{ background: erro ? "#1a0505" : "#070710", border: `1px solid ${erro ? "#f87171" : "#2a2a3a"}`, borderRadius: 10, color: "#E8E4DC", padding: "12px 16px", fontSize: 14, width: "100%", boxSizing: "border-box", fontFamily: "Georgia, serif", textAlign: "center", letterSpacing: 4, outline: "none", transition: "all 0.2s" }} />
+          {erro && <div style={{ fontSize: 12, color: "#f87171", marginTop: 8 }}>Senha incorreta. Tente novamente.</div>}
+        </div>
+        <button onClick={tentar} style={{ width: "100%", background: "#84cc16", border: "none", color: "#000", borderRadius: 10, padding: "12px", cursor: "pointer", fontSize: 14, fontFamily: "Georgia, serif", fontWeight: 700, letterSpacing: 1 }}>ENTRAR</button>
+      </div>
+    </div>
+  );
+}
 
 const PLANOS_BASE = ["Plano I", "Plano II", "Plano III", "Plano Plataforma", "Plano Club", "Personalizado"];
 const PLANO_VALORES = { "Plano I": 60000, "Plano II": 30000, "Plano III": 20000, "Plano Plataforma": 15000, "Plano Club": 1667, "Personalizado": "" };
@@ -6,6 +36,7 @@ const PLANO_CORES = { "Plano I": "#a78bfa", "Plano II": "#fb923c", "Plano III": 
 const STATUS_OPTS = ["Ativo", "Em proposta", "Negociação", "Vencido", "Cancelado"];
 const STATUS_CURSO = ["Ativo", "Em breve", "Encerrado"];
 const STATUS_CORES = { "Ativo": "#84cc16", "Em proposta": "#fbbf24", "Negociação": "#38bdf8", "Vencido": "#f87171", "Cancelado": "#6b7280", "Em breve": "#a78bfa", "Encerrado": "#6b7280" };
+const CATEGORIAS_AVULSO = ["Consultoria", "Evento", "Licença de conteúdo", "Parceria pontual", "Patrocínio avulso", "Outro"];
 
 const hoje = new Date();
 const fmtData = (d) => { if (!d) return "—"; const dt = new Date(d + "T12:00:00"); return dt.toLocaleDateString("pt-BR"); };
@@ -20,16 +51,11 @@ const EMPTY_CURSO = { nome: "", alunos: "", valor: "", status: "Ativo", lancamen
 const EMPTY_AVULSO = { descricao: "", valor: "", data: "", categoria: "Outro", obs: "" };
 const EMPTY_META = { mes: new Date().toISOString().slice(0, 7), meta: "", obs: "" };
 
-const CATEGORIAS_AVULSO = ["Consultoria", "Evento", "Licença de conteúdo", "Parceria pontual", "Patrocínio avulso", "Outro"];
-
 function useStorage(key, def) {
-  const [val, setVal] = useState(def);
-  useEffect(() => {
-    (async () => {
-      try { const r = await window.storage.get(key); if (r && r.value) setVal(JSON.parse(r.value)); } catch (_) {}
-    })();
-  }, [key]);
-  const save = async (v) => { setVal(v); try { await window.storage.set(key, JSON.stringify(v)); } catch (_) {} };
+  const [val, setVal] = useState(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def; } catch (_) { return def; }
+  });
+  const save = (v) => { setVal(v); try { localStorage.setItem(key, JSON.stringify(v)); } catch (_) {} };
   return [val, save];
 }
 
@@ -44,7 +70,7 @@ function AlertaDias({ dias }) {
   return <span style={{ fontSize: 10, color: cor, background: `${cor}15`, border: `1px solid ${cor}30`, borderRadius: 10, padding: "2px 7px" }}>{txt}</span>;
 }
 
-export default function App() {
+function Dashboard({ onLogout }) {
   const [aba, setAba] = useState("visao");
   const [patrocinadores, setPatrocinadores] = useStorage("pwr_patrocinadores", []);
   const [membros, setMembros] = useStorage("pwr_membros", []);
@@ -87,6 +113,7 @@ export default function App() {
 
   const inputStyle = { background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 8, color: "#E8E4DC", padding: "8px 12px", fontSize: 13, width: "100%", boxSizing: "border-box", fontFamily: "Georgia, serif" };
   const labelStyle = { fontSize: 11, color: "#5a5570", letterSpacing: 1, display: "block", marginBottom: 4 };
+  const nomePlano = (p) => p.plano === "Personalizado" && p.planoCustom ? p.planoCustom : p.plano;
 
   const salvarP = () => { const arr = [...patrocinadores]; if (modalP === "new") arr.push(formP); else arr[modalP] = formP; setPatrocinadores(arr); setModalP(null); };
   const salvarM = () => { const arr = [...membros]; if (modalM === "new") arr.push(formM); else arr[modalM] = formM; setMembros(arr); setModalM(null); };
@@ -94,8 +121,6 @@ export default function App() {
   const salvarC = () => { const arr = [...cursos]; if (modalC === "new") arr.push(formC); else arr[modalC] = formC; setCursos(arr); setModalC(null); };
   const salvarA = () => { const arr = [...avulsos]; if (modalA === "new") arr.push({ ...formA, data: formA.data || new Date().toISOString().slice(0, 10) }); else arr[modalA] = formA; setAvulsos(arr); setModalA(null); };
   const salvarMeta = () => { const arr = metas.filter(m => m.mes !== formMeta.mes); arr.push(formMeta); setMetas(arr); setModalMeta(null); };
-
-  const nomePlano = (p) => p.plano === "Personalizado" && p.planoCustom ? p.planoCustom : p.plano;
 
   const ABAS = [
     { id: "visao", label: "Visão Geral" },
@@ -109,7 +134,6 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "Georgia, serif", background: "#070710", minHeight: "100vh", color: "#E8E4DC" }}>
-
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #070710 0%, #0d1a05 60%, #070710 100%)", borderBottom: "1px solid #84cc1620", padding: "20px 32px 14px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -122,10 +146,13 @@ export default function App() {
             </div>
             <div style={{ fontSize: 11, color: "#3a3a50" }}>{hoje.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "#5a5570", marginBottom: 2 }}>RECEITA TOTAL</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#84cc16", lineHeight: 1 }}>{fmtMoeda(mrrTotal)}</div>
-            <div style={{ fontSize: 10, color: "#3a3a50", marginTop: 2 }}>todas as fontes</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: "#5a5570", marginBottom: 2 }}>RECEITA TOTAL</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "#84cc16", lineHeight: 1 }}>{fmtMoeda(mrrTotal)}</div>
+              <div style={{ fontSize: 10, color: "#3a3a50", marginTop: 2 }}>todas as fontes</div>
+            </div>
+            <button onClick={onLogout} style={{ background: "#1a1a2a", border: "1px solid #2a2a3a", color: "#5a5570", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 11, fontFamily: "Georgia, serif" }}>Sair</button>
           </div>
         </div>
       </div>
@@ -208,8 +235,7 @@ export default function App() {
                 <div style={{ fontSize: 11, color: "#5a5570", letterSpacing: 2, marginBottom: 14 }}>PRÓXIMOS 60 DIAS</div>
                 {[...patrocinadores.map(p => ({ ...p, tipo: "Patrocinador" })), ...membros.map(m => ({ ...m, tipo: "Club" }))]
                   .filter(x => { const d = diasAte(x.vencimento); return d !== null && d >= 0 && d <= 60; })
-                  .sort((a, b) => diasAte(a.vencimento) - diasAte(b.vencimento))
-                  .slice(0, 7)
+                  .sort((a, b) => diasAte(a.vencimento) - diasAte(b.vencimento)).slice(0, 7)
                   .map((x, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #1a1a24" }}>
                       <div>
@@ -231,17 +257,11 @@ export default function App() {
         {aba === "patrocinadores" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div>
-                <h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Patrocinadores</h2>
-                <div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>MRR: {fmtMoeda(mrrPatroc)}</div>
-              </div>
+              <div><h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Patrocinadores</h2><div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>MRR: {fmtMoeda(mrrPatroc)}</div></div>
               <button onClick={() => { setFormP({ ...EMPTY_PATROC }); setModalP("new"); }} style={{ background: "#fb923c20", border: "1px solid #fb923c40", color: "#fb923c", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>+ Adicionar marca</button>
             </div>
             {patrocinadores.length === 0 ? (
-              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🏢</div>
-                <div style={{ fontSize: 14, color: "#5a5570" }}>Nenhum patrocinador cadastrado</div>
-              </div>
+              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 12 }}>🏢</div><div style={{ fontSize: 14, color: "#5a5570" }}>Nenhum patrocinador cadastrado</div></div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {patrocinadores.map((p, i) => (
@@ -280,17 +300,11 @@ export default function App() {
         {aba === "club" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div>
-                <h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>PowerClub — Membros</h2>
-                <div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>{membrosAtivos.length} ativos · MRR: {fmtMoeda(mrrClub)}</div>
-              </div>
+              <div><h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>PowerClub — Membros</h2><div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>{membrosAtivos.length} ativos · MRR: {fmtMoeda(mrrClub)}</div></div>
               <button onClick={() => { setFormM({ ...EMPTY_MEMBRO }); setModalM("new"); }} style={{ background: "#84cc1620", border: "1px solid #84cc1640", color: "#84cc16", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>+ Adicionar membro</button>
             </div>
             {membros.length === 0 ? (
-              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🏆</div>
-                <div style={{ fontSize: 14, color: "#5a5570" }}>Nenhum membro cadastrado</div>
-              </div>
+              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 12 }}>🏆</div><div style={{ fontSize: 14, color: "#5a5570" }}>Nenhum membro cadastrado</div></div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {membros.map((m, i) => (
@@ -328,17 +342,11 @@ export default function App() {
         {aba === "imersoes" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div>
-                <h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Imersões Avulsas</h2>
-                <div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>Receita total: {fmtMoeda(receitaImersoes)}</div>
-              </div>
+              <div><h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Imersões Avulsas</h2><div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>Receita total: {fmtMoeda(receitaImersoes)}</div></div>
               <button onClick={() => { setFormI({ ...EMPTY_IMERSAO }); setModalI("new"); }} style={{ background: "#a78bfa20", border: "1px solid #a78bfa40", color: "#a78bfa", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>+ Adicionar imersão</button>
             </div>
             {imersoes.length === 0 ? (
-              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🏛</div>
-                <div style={{ fontSize: 14, color: "#5a5570" }}>Nenhuma imersão cadastrada</div>
-              </div>
+              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 12 }}>🏛</div><div style={{ fontSize: 14, color: "#5a5570" }}>Nenhuma imersão cadastrada</div></div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {imersoes.map((im, i) => {
@@ -380,17 +388,11 @@ export default function App() {
         {aba === "cursos" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div>
-                <h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Cursos</h2>
-                <div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>Receita total: {fmtMoeda(receitaCursos)}</div>
-              </div>
+              <div><h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Cursos</h2><div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>Receita total: {fmtMoeda(receitaCursos)}</div></div>
               <button onClick={() => { setFormC({ ...EMPTY_CURSO }); setModalC("new"); }} style={{ background: "#38bdf820", border: "1px solid #38bdf840", color: "#38bdf8", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>+ Adicionar curso</button>
             </div>
             {cursos.length === 0 ? (
-              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🎓</div>
-                <div style={{ fontSize: 14, color: "#5a5570" }}>Nenhum curso cadastrado</div>
-              </div>
+              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 12 }}>🎓</div><div style={{ fontSize: 14, color: "#5a5570" }}>Nenhum curso cadastrado</div></div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
                 {cursos.map((c, i) => {
@@ -408,14 +410,8 @@ export default function App() {
                         <div style={{ fontSize: 16, color: "#38bdf8", fontWeight: 700 }}>{fmtMoeda(rec)}</div>
                       </div>
                       <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                        <div style={{ background: "#1a1a2a", borderRadius: 8, padding: "8px 12px", flex: 1, textAlign: "center" }}>
-                          <div style={{ fontSize: 18, color: "#38bdf8", fontWeight: 700 }}>{c.alunos || 0}</div>
-                          <div style={{ fontSize: 10, color: "#5a5570" }}>alunos</div>
-                        </div>
-                        <div style={{ background: "#1a1a2a", borderRadius: 8, padding: "8px 12px", flex: 1, textAlign: "center" }}>
-                          <div style={{ fontSize: 18, color: "#38bdf8", fontWeight: 700 }}>{fmtMoeda(c.valor)}</div>
-                          <div style={{ fontSize: 10, color: "#5a5570" }}>por aluno</div>
-                        </div>
+                        <div style={{ background: "#1a1a2a", borderRadius: 8, padding: "8px 12px", flex: 1, textAlign: "center" }}><div style={{ fontSize: 18, color: "#38bdf8", fontWeight: 700 }}>{c.alunos || 0}</div><div style={{ fontSize: 10, color: "#5a5570" }}>alunos</div></div>
+                        <div style={{ background: "#1a1a2a", borderRadius: 8, padding: "8px 12px", flex: 1, textAlign: "center" }}><div style={{ fontSize: 18, color: "#38bdf8", fontWeight: 700 }}>{fmtMoeda(c.valor)}</div><div style={{ fontSize: 10, color: "#5a5570" }}>por aluno</div></div>
                       </div>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                         <button onClick={() => { setFormC({ ...c }); setModalC(i); }} style={{ background: "#1a1a2a", border: "none", color: "#5a5570", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 12 }}>✎</button>
@@ -433,18 +429,11 @@ export default function App() {
         {aba === "avulsos" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div>
-                <h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Vendas Avulsas</h2>
-                <div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>Qualquer receita extra que não se encaixa nas outras categorias · Total: {fmtMoeda(receitaAvulsos)}</div>
-              </div>
+              <div><h2 style={{ color: "#E8E4DC", fontSize: 18, fontWeight: 400, margin: 0 }}>Vendas Avulsas</h2><div style={{ fontSize: 12, color: "#5a5570", marginTop: 3 }}>Receitas extras · Total: {fmtMoeda(receitaAvulsos)}</div></div>
               <button onClick={() => { setFormA({ ...EMPTY_AVULSO }); setModalA("new"); }} style={{ background: "#f472b620", border: "1px solid #f472b640", color: "#f472b6", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontFamily: "Georgia, serif" }}>+ Adicionar venda</button>
             </div>
             {avulsos.length === 0 ? (
-              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>💸</div>
-                <div style={{ fontSize: 14, color: "#5a5570", marginBottom: 6 }}>Nenhuma venda avulsa cadastrada</div>
-                <div style={{ fontSize: 12, color: "#3a3a50" }}>Use para consultorias, licenças de conteúdo, parcerias pontuais, etc.</div>
-              </div>
+              <div style={{ background: "#0d0d18", border: "1px dashed #2a2a3a", borderRadius: 14, padding: "48px", textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 12 }}>💸</div><div style={{ fontSize: 14, color: "#5a5570", marginBottom: 6 }}>Nenhuma venda avulsa cadastrada</div><div style={{ fontSize: 12, color: "#3a3a50" }}>Use para consultorias, parcerias pontuais, etc.</div></div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {avulsos.sort((a, b) => new Date(b.data) - new Date(a.data)).map((a, i) => (
@@ -513,28 +502,18 @@ export default function App() {
         )}
       </div>
 
-      {/* MODAL PATROCINADOR */}
+      {/* MODAIS */}
       {modalP !== null && (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
           <div style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 16, padding: "28px", width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalP === "new" ? "Nova Marca Parceira" : "Editar Marca"}</h3>
-              <button onClick={() => setModalP(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}><h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalP === "new" ? "Nova Marca Parceira" : "Editar Marca"}</h3><button onClick={() => setModalP(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div><label style={labelStyle}>NOME DA MARCA</label><input style={inputStyle} value={formP.nome} onChange={e => setFormP({ ...formP, nome: e.target.value })} placeholder="Ex: Kopenhagen" /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>PLANO</label>
-                  <select style={inputStyle} value={formP.plano} onChange={e => setFormP({ ...formP, plano: e.target.value, valor: PLANO_VALORES[e.target.value] || formP.valor })}>
-                    {PLANOS_BASE.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
+                <div><label style={labelStyle}>PLANO</label><select style={inputStyle} value={formP.plano} onChange={e => setFormP({ ...formP, plano: e.target.value, valor: PLANO_VALORES[e.target.value] || formP.valor })}>{PLANOS_BASE.map(p => <option key={p}>{p}</option>)}</select></div>
                 <div><label style={labelStyle}>VALOR (R$)/MÊS</label><input style={inputStyle} type="number" value={formP.valor} onChange={e => setFormP({ ...formP, valor: e.target.value })} placeholder={PLANO_VALORES[formP.plano] || "Valor livre"} /></div>
               </div>
-              {formP.plano === "Personalizado" && (
-                <div><label style={labelStyle}>NOME DO PLANO PERSONALIZADO</label><input style={inputStyle} value={formP.planoCustom} onChange={e => setFormP({ ...formP, planoCustom: e.target.value })} placeholder="Ex: Plano Exclusivo VIP" /></div>
-              )}
+              {formP.plano === "Personalizado" && <div><label style={labelStyle}>NOME DO PLANO PERSONALIZADO</label><input style={inputStyle} value={formP.planoCustom} onChange={e => setFormP({ ...formP, planoCustom: e.target.value })} placeholder="Ex: Plano Exclusivo VIP" /></div>}
               <div><label style={labelStyle}>STATUS</label><select style={inputStyle} value={formP.status} onChange={e => setFormP({ ...formP, status: e.target.value })}>{STATUS_OPTS.map(s => <option key={s}>{s}</option>)}</select></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div><label style={labelStyle}>DATA DE INÍCIO</label><input style={inputStyle} type="date" value={formP.inicio} onChange={e => setFormP({ ...formP, inicio: e.target.value })} /></div>
@@ -551,23 +530,15 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL MEMBRO */}
       {modalM !== null && (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
           <div style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 16, padding: "28px", width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalM === "new" ? "Novo Membro PowerClub" : "Editar Membro"}</h3>
-              <button onClick={() => setModalM(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}><h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalM === "new" ? "Novo Membro PowerClub" : "Editar Membro"}</h3><button onClick={() => setModalM(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div><label style={labelStyle}>NOME DO MEMBRO</label><input style={inputStyle} value={formM.nome} onChange={e => setFormM({ ...formM, nome: e.target.value })} placeholder="Nome completo" /></div>
               <div><label style={labelStyle}>EMPRESA / NEGÓCIO</label><input style={inputStyle} value={formM.empresa} onChange={e => setFormM({ ...formM, empresa: e.target.value })} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>VALOR MENSAL (R$)</label>
-                  <input style={inputStyle} type="number" value={formM.valor} onChange={e => setFormM({ ...formM, valor: e.target.value })} placeholder="Ex: 1667" />
-                  <div style={{ fontSize: 10, color: "#3a3a50", marginTop: 3 }}>Padrão: R$1.667 · Personalize se necessário</div>
-                </div>
+                <div><label style={labelStyle}>VALOR MENSAL (R$)</label><input style={inputStyle} type="number" value={formM.valor} onChange={e => setFormM({ ...formM, valor: e.target.value })} placeholder="Ex: 1667" /><div style={{ fontSize: 10, color: "#3a3a50", marginTop: 3 }}>Padrão: R$1.667</div></div>
                 <div><label style={labelStyle}>STATUS</label><select style={inputStyle} value={formM.status} onChange={e => setFormM({ ...formM, status: e.target.value })}>{STATUS_OPTS.map(s => <option key={s}>{s}</option>)}</select></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -585,14 +556,10 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL IMERSÃO */}
       {modalI !== null && (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
           <div style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 16, padding: "28px", width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalI === "new" ? "Nova Imersão Avulsa" : "Editar Imersão"}</h3>
-              <button onClick={() => setModalI(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}><h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalI === "new" ? "Nova Imersão Avulsa" : "Editar Imersão"}</h3><button onClick={() => setModalI(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div><label style={labelStyle}>NOME DA IMERSÃO</label><input style={inputStyle} value={formI.nome} onChange={e => setFormI({ ...formI, nome: e.target.value })} placeholder="Ex: Imersão iFood" /></div>
               <div><label style={labelStyle}>EMPRESA ANFITRIÃ</label><input style={inputStyle} value={formI.empresa} onChange={e => setFormI({ ...formI, empresa: e.target.value })} placeholder="Ex: iFood" /></div>
@@ -615,14 +582,10 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL CURSO */}
       {modalC !== null && (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
           <div style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 16, padding: "28px", width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalC === "new" ? "Novo Curso" : "Editar Curso"}</h3>
-              <button onClick={() => setModalC(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}><h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalC === "new" ? "Novo Curso" : "Editar Curso"}</h3><button onClick={() => setModalC(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div><label style={labelStyle}>NOME DO CURSO</label><input style={inputStyle} value={formC.nome} onChange={e => setFormC({ ...formC, nome: e.target.value })} placeholder="Ex: Método Power de Vendas" /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -643,23 +606,14 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL VENDA AVULSA */}
       {modalA !== null && (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
           <div style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 16, padding: "28px", width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalA === "new" ? "Nova Venda Avulsa" : "Editar Venda"}</h3>
-              <button onClick={() => setModalA(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}><h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>{modalA === "new" ? "Nova Venda Avulsa" : "Editar Venda"}</h3><button onClick={() => setModalA(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div><label style={labelStyle}>DESCRIÇÃO</label><input style={inputStyle} value={formA.descricao} onChange={e => setFormA({ ...formA, descricao: e.target.value })} placeholder="Ex: Consultoria para marca X" /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>CATEGORIA</label>
-                  <select style={inputStyle} value={formA.categoria} onChange={e => setFormA({ ...formA, categoria: e.target.value })}>
-                    {CATEGORIAS_AVULSO.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
+                <div><label style={labelStyle}>CATEGORIA</label><select style={inputStyle} value={formA.categoria} onChange={e => setFormA({ ...formA, categoria: e.target.value })}>{CATEGORIAS_AVULSO.map(c => <option key={c}>{c}</option>)}</select></div>
                 <div><label style={labelStyle}>VALOR (R$)</label><input style={inputStyle} type="number" value={formA.valor} onChange={e => setFormA({ ...formA, valor: e.target.value })} placeholder="Ex: 5000" /></div>
               </div>
               <div><label style={labelStyle}>DATA</label><input style={inputStyle} type="date" value={formA.data} onChange={e => setFormA({ ...formA, data: e.target.value })} /></div>
@@ -673,14 +627,10 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL META */}
       {modalMeta && (
         <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
           <div style={{ background: "#0d0d18", border: "1px solid #2a2a3a", borderRadius: 16, padding: "28px", width: "100%", maxWidth: 400 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>Meta do Mês</h3>
-              <button onClick={() => setModalMeta(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}><h3 style={{ color: "#E8E4DC", fontSize: 16, margin: 0 }}>Meta do Mês</h3><button onClick={() => setModalMeta(null)} style={{ background: "none", border: "none", color: "#5a5570", cursor: "pointer", fontSize: 18 }}>✕</button></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div><label style={labelStyle}>MÊS</label><input style={inputStyle} type="month" value={formMeta.mes} onChange={e => setFormMeta({ ...formMeta, mes: e.target.value })} /></div>
               <div><label style={labelStyle}>META DE RECEITA (R$)</label><input style={inputStyle} type="number" value={formMeta.meta} onChange={e => setFormMeta({ ...formMeta, meta: e.target.value })} placeholder="Ex: 80000" /></div>
@@ -695,4 +645,11 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  const [autenticado, setAutenticado] = useState(() => localStorage.getItem("pwr_auth") === "true");
+  const logout = () => { localStorage.removeItem("pwr_auth"); setAutenticado(false); };
+  if (!autenticado) return <LoginScreen onLogin={() => setAutenticado(true)} />;
+  return <Dashboard onLogout={logout} />;
 }
